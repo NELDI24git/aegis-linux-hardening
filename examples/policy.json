@@ -1,0 +1,22 @@
+{
+  "schema_version": 3,
+  "profile": "web-server",
+  "network": {
+    "allowed_public_ports": [22, 80, 443],
+    "sensitive_ports": {
+      "8443": "administrative HTTPS interface"
+    }
+  },
+  "privilege": {
+    "allowed_suid_sgid": []
+  },
+  "ssh": {
+    "admin_users": ["admin"],
+    "expected_password_authentication": "disabled"
+  },
+  "controls": {
+    "include": [],
+    "exclude": []
+  },
+  "exceptions": []
+}

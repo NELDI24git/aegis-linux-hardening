@@ -1,0 +1,4 @@
+#compdef aegis
+_arguments \
+  '1:command:(audit list-checks list-fixes profiles doctor inventory baseline policy integrity plan preflight fix transactions rollback)' \
+  '*::arg:->args'

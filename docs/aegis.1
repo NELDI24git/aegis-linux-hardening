@@ -1,0 +1,31 @@
+.TH AEGIS 1 "October 2026" "Aegis 1.0.0" "User Commands"
+.SH NAME
+aegis \- Linux security auditing and safe-hardening framework
+.SH SYNOPSIS
+.B aegis
+[--root PATH] COMMAND [OPTIONS]
+.SH DESCRIPTION
+Aegis audits Linux security controls, inventories attack surface, applies selected managed remediations transactionally, and records rollback metadata.
+.SH COMMON COMMANDS
+.TP
+.B audit
+Run security checks. Supports --profile, --module, --tag, --json, --html, --sarif, --fail-on and optional HMAC signing. GitHub Code Scanning requires an explicit SARIF source-location map.
+.TP
+.B profiles
+List built-in host role profiles.
+.TP
+.B baseline create|compare
+Capture or compare reviewed listening-socket and SUID/SGID state. Creating an existing baseline requires --force; signed baselines require --verify-key when compared.
+.TP
+.B policy validate|migrate|example
+Work with versioned host policy.
+.TP
+.B integrity keygen|sign|verify
+Protect reports/baselines with HMAC-SHA256 metadata.
+.TP
+.B preflight / fix / rollback
+Plan, validate, apply and reverse supported hardening changes.
+.SH SECURITY
+Aegis is conservative by design. Review policy, keep a second administrative session for SSH changes, and test on disposable systems before production use.
+.SH FILES
+/etc/aegis/policy.json, /var/lib/aegis/backups/, /var/log/aegis/events.jsonl

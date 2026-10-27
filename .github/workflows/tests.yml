@@ -1,0 +1,49 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m compileall -q aegis tests
+      - run: bash -n scripts/install.sh scripts/uninstall.sh integration/run-container-matrix.sh
+      - run: python -m pytest
+      - name: Generate and parse location-free SARIF
+        run: python -m aegis --root "$RUNNER_TEMP/aegis-root" audit --sarif "$RUNNER_TEMP/aegis.sarif"
+      - name: Validate SARIF envelope
+        run: python -c "import json,os; p=json.load(open(os.environ['RUNNER_TEMP']+'/aegis.sarif', encoding='utf-8')); assert p['version']=='2.1.0' and len(p['runs'])==1"
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip wheel . --no-deps -w dist
+      - run: python -m venv /tmp/aegis-venv
+      - run: /tmp/aegis-venv/bin/python -m pip install --no-deps dist/*.whl
+      - run: test "$(/tmp/aegis-venv/bin/aegis --version)" = "Aegis 1.0.0"
+      - run: /tmp/aegis-venv/bin/aegis policy example | /tmp/aegis-venv/bin/python -m json.tool >/dev/null
+      - run: /tmp/aegis-venv/bin/python -m pip check
+
+  container-matrix:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./integration/run-container-matrix.sh
