@@ -1,10 +1,10 @@
-# Aegis v1.0.0
+# Aegis v1.1.0
 
 Aegis is a defensive Linux security auditing and safe-hardening framework written in Python.
 
 > **Do not change a security-sensitive setting unless Aegis can inspect the current state, preserve it, validate the replacement, and recover from failure.**
 
-`v1.0.0` stabilizes Aegis’s public command-line interface, machine-readable formats and automation exit codes. It includes 37 checks, 12 managed fixes, role profiles, HMAC-signed evidence, baseline drift detection and conflict-aware rollback. Use the disposable integration workflow to validate role-specific changes before applying remediation to service hosts.
+`v1.1.0` adds full-audit snapshots and change classification to Aegis’s stable 1.x command-line and evidence formats. It includes 37 checks, 12 managed fixes, role profiles, HMAC-signed evidence, baseline drift detection and conflict-aware rollback. Review snapshots before using their differences in automation.
 
 ## What Aegis does
 
@@ -207,6 +207,23 @@ Aegis refuses to overwrite an existing baseline or signature unless `--force` is
 
 Drift covers listener identities and SUID/SGID file metadata/provenance. Baseline JSON is schema-validated before comparison, and signed comparisons verify the exact bytes that are then parsed.
 
+## Full-audit snapshots and diff
+
+Capture all audit findings, or a repeatable module/tag scope, without changing host settings:
+
+```bash
+sudo aegis snapshot create before.json --host-id web-01 --sign-key /secure/aegis-integrity.key
+# Later, after the next audit window:
+sudo aegis snapshot create after.json --host-id web-01 --sign-key /secure/aegis-integrity.key
+
+sudo aegis snapshot diff before.json after.json \
+  --verify-key /secure/aegis-integrity.key --require-signature
+```
+
+The diff groups added and removed checks, resolved findings, regressions and other changes. Use `--json` for machine-readable output; code 9 means findings changed. Comparisons require matching module/tag scopes and reject different host IDs. `--host-id` is optional; without it, Aegis warns that the same host could not be confirmed. Creation refuses to overwrite a snapshot or signature unless `--force` is supplied.
+
+Snapshots contain audit evidence and may reveal host details. Store and share them with the same care as JSON audit reports.
+
 ## HMAC integrity for evidence
 
 Generate a local secret key:
@@ -341,7 +358,7 @@ Firewall discovery understands UFW, firewalld and restrictive nftables input pol
 
 ## Compatibility and verification
 
-The v1.0 compatibility contract is documented in [`docs/V1_COMPATIBILITY.md`](docs/V1_COMPATIBILITY.md). Unit, package and integration commands are listed in [`docs/TESTING.md`](docs/TESTING.md). The container matrix and VM procedures use disposable systems so service reloads, persistence and rollback can be exercised safely.
+The 1.x compatibility contract is documented in [`docs/V1_COMPATIBILITY.md`](docs/V1_COMPATIBILITY.md). Unit, package and integration commands are listed in [`docs/TESTING.md`](docs/TESTING.md). The container matrix and VM procedures use disposable systems so service reloads, persistence and rollback can be exercised safely.
 
 ## Project layout
 

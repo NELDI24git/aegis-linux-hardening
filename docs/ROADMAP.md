@@ -44,6 +44,10 @@ Added SARIF 2.1.0 output, explicit repository location maps for GitHub Code Scan
 
 Released: stable 1.x CLI and exit-code behavior, versioned policy/report/baseline/transaction/event/signature formats, SARIF 2.1.0 output, compatibility tests, source and wheel packaging, and disposable integration procedures.
 
+## v1.1 — full-audit snapshots and diff
+
+Added schema-versioned audit snapshots, scope and host identity checks, HMAC verification, atomic no-overwrite creation, JSON diff output, change categories and stable exit code 9.
+
 ## Ongoing maintenance
 
 - Run the unit and package workflow across supported Python versions for every change.

@@ -4,10 +4,10 @@ import argparse
 import json
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 from aegis import __version__
+from aegis.artifacts import publish_artifact
 from aegis.baseline import compare_baseline_data, create_baseline, render_drift
 from aegis.checks import ALL_CHECKS
 from aegis.context import SystemContext
@@ -17,7 +17,7 @@ from aegis.engine.remediation import RemediationError, apply_fixes, plan_fix, pr
 from aegis.engine.transaction import list_transactions, rollback_transaction
 from aegis.fileio import atomic_write_text
 from aegis.eventlog import emit_event
-from aegis.exitcodes import AUDIT_THRESHOLD, DRIFT_DETECTED, INTEGRITY_FAILED, OK, PREFLIGHT_FAILED, REMEDIATION_FAILED, RUNTIME_ROLLBACK_FAILED, USAGE_OR_INPUT
+from aegis.exitcodes import AUDIT_THRESHOLD, DRIFT_DETECTED, INTEGRITY_FAILED, OK, PREFLIGHT_FAILED, REMEDIATION_FAILED, RUNTIME_ROLLBACK_FAILED, SNAPSHOT_CHANGES, USAGE_OR_INPUT
 from aegis.integrity import IntegrityError, generate_key, sign_file, signature_path, verify_bytes, verify_file
 from aegis.inventory.privileged import collect_privileged_files
 from aegis.inventory.sockets import collect_listening_sockets
@@ -29,6 +29,7 @@ from aegis.reporting.console import render_console
 from aegis.reporting.html_report import render_html
 from aegis.reporting.json_report import render_json
 from aegis.reporting.sarif_report import load_location_map, render_sarif
+from aegis.snapshots import compare_snapshots, create_snapshot, load_snapshot_data, render_snapshot, render_snapshot_diff
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,6 +69,23 @@ def build_parser() -> argparse.ArgumentParser:
     baseline_compare.add_argument("baseline_file")
     baseline_compare.add_argument("--verify-key", help="Verify the HMAC signature before comparison")
     baseline_compare.add_argument("--require-signature", action="store_true", help="Reject unsigned baselines")
+
+    snapshots = sub.add_parser("snapshot", help="Capture and compare complete audit snapshots")
+    snapshot_sub = snapshots.add_subparsers(dest="snapshot_command", required=True)
+    snapshot_create = snapshot_sub.add_parser("create", help="Capture an audit snapshot without changing the host")
+    snapshot_create.add_argument("output")
+    snapshot_create.add_argument("--module", choices=sorted({c.module for c in ALL_CHECKS}))
+    snapshot_create.add_argument("--profile", choices=profile_names())
+    snapshot_create.add_argument("--tag", action="append", default=[])
+    snapshot_create.add_argument("--host-id", help="Optional stable label used to prevent comparing different hosts")
+    snapshot_create.add_argument("--sign-key", help="HMAC-sign the snapshot")
+    snapshot_create.add_argument("--force", action="store_true", help="Replace an existing snapshot and signature")
+    snapshot_diff = snapshot_sub.add_parser("diff", help="Compare two audit snapshots")
+    snapshot_diff.add_argument("before")
+    snapshot_diff.add_argument("after")
+    snapshot_diff.add_argument("--verify-key", help="Verify signed snapshots before comparison")
+    snapshot_diff.add_argument("--require-signature", action="store_true", help="Reject unsigned snapshots")
+    snapshot_diff.add_argument("--json", action="store_true", help="Write machine-readable diff JSON to stdout")
 
     policy = sub.add_parser("policy", help="Validate, migrate, or print a host policy")
     policy_sub = policy.add_subparsers(dest="policy_command", required=True)
@@ -123,47 +141,32 @@ def _sign_output(path: str, key: str) -> None:
 
 
 def _create_baseline_artifact(ctx: SystemContext, output: str, *, sign_key: str | None, force: bool) -> None:
-    target = Path(output)
+    publish_artifact(
+        output,
+        lambda staged: create_baseline(ctx, staged),
+        sign_key=sign_key,
+        force=force,
+    )
+
+
+def _read_snapshot_artifact(path: str, *, verify_key: str | None, require_signature: bool) -> dict:
+    target = Path(path)
+    if target.is_symlink():
+        raise IntegrityError(f"refusing to read a symlink snapshot: {target}")
+    data = target.read_bytes()
     signature = signature_path(target)
-    if sign_key:
-        key_path = os.path.normcase(os.path.abspath(sign_key))
-        if key_path in {os.path.normcase(os.path.abspath(target)), os.path.normcase(os.path.abspath(signature))}:
-            raise ValueError("integrity key path conflicts with the baseline or its signature")
-    if not force and any(path.exists() or path.is_symlink() for path in (target, signature)):
-        raise FileExistsError(f"{target} or its signature already exists; use --force to replace it")
-
-    fd, stage_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
-    os.close(fd)
-    stage = Path(stage_name)
-    stage_signature = stage.with_name(stage.name + ".sig")
-    try:
-        create_baseline(ctx, stage)
-        if sign_key:
-            sign_file(stage, sign_key, signature=stage_signature, target_name=target.name)
-        if force:
-            os.replace(stage, target)
-        elif os.name == "nt":
-            os.rename(stage, target)
-        else:
-            os.link(stage, target)
-            stage.unlink()
-        if sign_key:
-            if force:
-                os.replace(stage_signature, signature)
-            elif os.name == "nt":
-                os.rename(stage_signature, signature)
-            else:
-                os.link(stage_signature, signature)
-                stage_signature.unlink()
-        elif signature.exists() or signature.is_symlink():
-            signature.unlink()
-    finally:
-        for path in (stage, stage_signature):
-            try:
-                path.unlink()
-            except FileNotFoundError:
-                pass
-
+    has_signature = signature.exists() or signature.is_symlink()
+    if require_signature and not verify_key:
+        raise IntegrityError("--require-signature requires --verify-key")
+    if require_signature and not has_signature:
+        raise IntegrityError(f"snapshot signature is required but missing: {signature}")
+    if has_signature and not verify_key:
+        raise IntegrityError(f"snapshot has a signature; pass --verify-key to verify it: {signature}")
+    if verify_key:
+        result = verify_bytes(data, target.name, verify_key, signature=signature)
+        if not result.ok:
+            raise IntegrityError(result.message)
+    return load_snapshot_data(data)
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
@@ -266,6 +269,54 @@ def main(argv: list[str] | None = None) -> int:
             print(item.display())
         print(f"Total: {len(files)}")
         return OK
+
+    if args.command == "snapshot":
+        if args.snapshot_command == "create":
+            try:
+                payload = create_snapshot(
+                    ctx,
+                    module=args.module,
+                    profile=args.profile,
+                    tags=set(args.tag),
+                    host_id=args.host_id,
+                )
+                publish_artifact(
+                    args.output,
+                    lambda staged: atomic_write_text(staged, render_snapshot(payload)),
+                    sign_key=args.sign_key,
+                    force=args.force,
+                )
+            except FileExistsError as exc:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                return USAGE_OR_INPUT
+            except IntegrityError as exc:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                return INTEGRITY_FAILED
+            except (OSError, ValueError, TypeError) as exc:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                return USAGE_OR_INPUT
+            emit_event(ctx, "snapshot.create", details={"snapshot_id": payload["snapshot_id"], "checks": len(payload["findings"]), "signed": bool(args.sign_key)})
+            print(f"Snapshot written to {args.output} ({len(payload['findings'])} checks)")
+            if args.sign_key:
+                print(f"Integrity signature written to {signature_path(args.output)}")
+            return OK
+
+        try:
+            before = _read_snapshot_artifact(args.before, verify_key=args.verify_key, require_signature=args.require_signature)
+            after = _read_snapshot_artifact(args.after, verify_key=args.verify_key, require_signature=args.require_signature)
+            diff = compare_snapshots(before, after)
+        except IntegrityError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return INTEGRITY_FAILED
+        except (OSError, ValueError, TypeError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return USAGE_OR_INPUT
+        emit_event(ctx, "snapshot.diff", outcome="changes" if diff.has_changes else "clean", details={"before": before["snapshot_id"], "after": after["snapshot_id"], "changes": diff.has_changes, "signature_verified": bool(args.verify_key)})
+        if args.json:
+            print(json.dumps(diff.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(render_snapshot_diff(diff))
+        return SNAPSHOT_CHANGES if diff.has_changes else OK
 
     if args.command == "baseline":
         if args.baseline_command == "create":

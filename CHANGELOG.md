@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.0 — 2026-10-27
+
+- Added schema-versioned snapshots of complete audit findings with policy fingerprints, optional host IDs and repeatable scope metadata.
+- Added text and JSON snapshot diffs that classify added/removed checks, resolved findings, regressions and other changes.
+- Rejects host or scope mismatches; signed snapshots fail closed and verify the exact bytes parsed.
+- Added atomic, no-overwrite snapshot creation with optional HMAC sidecars and stable exit code 9 for finding changes.
+- Shared the safe artifact publisher between baselines and snapshots; added tests and CLI/documentation coverage.
+
 ## v1.0.0 — 2026-10-27
 
 - Stabilized the 1.x command-line, exit-code, policy and evidence-format compatibility contract.

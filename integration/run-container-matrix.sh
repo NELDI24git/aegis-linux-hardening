@@ -9,7 +9,7 @@ if [[ -z "$ENGINE" ]]; then
   fi
 fi
 for distro in ubuntu debian fedora; do
-  image="aegis-integration:${distro}-1.0.0"
+  image="aegis-integration:${distro}-1.1.0"
   echo "==> Building $distro"
   "$ENGINE" build -f "$ROOT/integration/containers/${distro}.Dockerfile" -t "$image" "$ROOT"
   echo "==> Testing $distro"

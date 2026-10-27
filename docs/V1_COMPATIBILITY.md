@@ -11,7 +11,7 @@ This document defines the automation-facing compatibility guarantees for Aegis 1
 - Policy migration is explicit. Aegis never silently activates a migrated or invalid policy.
 - Transaction rollback validates transaction data and current file state before modifying files; conflict protection remains part of the remediation contract.
 
-## Versioned formats in 1.0.0
+## Versioned formats in 1.1.0
 
 | Interface or format | Current version | Compatibility behavior |
 | --- | ---: | --- |
@@ -23,6 +23,8 @@ This document defines the automation-facing compatibility guarantees for Aegis 1
 | Operational event | schema 1 | Best-effort JSONL record; logging does not replace the command result. |
 | HMAC signature sidecar | schema 2 | New signatures bind the target filename; schema 1 and 2 verify. |
 | SARIF | 2.1.0 | Source locations for repository code are supplied explicitly. |
+| Audit snapshot | schema 1 | Snapshots validate scope, host ID and finding records before comparison. |
+| Snapshot diff JSON | schema 1 | Machine-readable change categories use `--json`. |
 
 ## Stable exit codes
 
@@ -36,6 +38,7 @@ This document defines the automation-facing compatibility guarantees for Aegis 1
 | 6 | Integrity or signature operation failed |
 | 7 | Remediation preflight failed |
 | 8 | Remediation apply failed |
+| 9 | Snapshot findings changed |
 
 ## Compatibility entry points
 

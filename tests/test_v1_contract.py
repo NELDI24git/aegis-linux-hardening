@@ -13,6 +13,7 @@ from aegis.exitcodes import (
     PREFLIGHT_FAILED,
     REMEDIATION_FAILED,
     RUNTIME_ROLLBACK_FAILED,
+    SNAPSHOT_CHANGES,
     USAGE_OR_INPUT,
 )
 from aegis.integrity import SIGNATURE_SCHEMA_VERSION
@@ -22,7 +23,7 @@ from aegis.reporting.sarif_report import SARIF_VERSION
 
 
 def test_v1_release_and_machine_format_versions_are_pinned() -> None:
-    assert aegis.__version__ == "1.0.0"
+    assert aegis.__version__ == "1.1.0"
     assert POLICY_SCHEMA_VERSION == 3
     assert REPORT_SCHEMA_VERSION == 2
     assert BASELINE_SCHEMA_VERSION == 2
@@ -42,6 +43,7 @@ def test_v1_automation_exit_code_meanings_are_pinned() -> None:
         "integrity": INTEGRITY_FAILED,
         "preflight": PREFLIGHT_FAILED,
         "remediation": REMEDIATION_FAILED,
+        "snapshot_changes": SNAPSHOT_CHANGES,
     } == {
         "success": 0,
         "input": 2,
@@ -51,6 +53,7 @@ def test_v1_automation_exit_code_meanings_are_pinned() -> None:
         "integrity": 6,
         "preflight": 7,
         "remediation": 8,
+        "snapshot_changes": 9,
     }
 
 

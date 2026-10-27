@@ -11,7 +11,7 @@ bash -n scripts/install.sh scripts/uninstall.sh integration/run-container-matrix
 python -m pytest
 ```
 
-The unit suite covers policy validation and migration, profile and exception behavior, report/baseline schemas, signature lifecycle and tamper handling, transaction rollback and conflict protection, CLI exit codes, SARIF output, and the v1.0 compatibility contract.
+The unit suite covers policy validation and migration, profile and exception behavior, report/baseline schemas, signature lifecycle and tamper handling, transaction rollback and conflict protection, CLI exit codes, SARIF output, signed snapshot lifecycle, snapshot validation and change classification, and the 1.x compatibility contract.
 
 ## Package check
 

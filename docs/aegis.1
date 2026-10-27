@@ -1,4 +1,4 @@
-.TH AEGIS 1 "October 2026" "Aegis 1.0.0" "User Commands"
+.TH AEGIS 1 "October 2026" "Aegis 1.1.0" "User Commands"
 .SH NAME
 aegis \- Linux security auditing and safe-hardening framework
 .SH SYNOPSIS
@@ -16,6 +16,9 @@ List built-in host role profiles.
 .TP
 .B baseline create|compare
 Capture or compare reviewed listening-socket and SUID/SGID state. Creating an existing baseline requires --force; signed baselines require --verify-key when compared.
+.TP
+.B snapshot create|diff
+Capture full audit findings and classify changes between signed or unsigned snapshots.
 .TP
 .B policy validate|migrate|example
 Work with versioned host policy.

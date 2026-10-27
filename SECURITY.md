@@ -1,6 +1,6 @@
 # Security policy
 
-Aegis v1.0.0 stabilizes the public CLI and data contracts. Aegis changes security-sensitive system configuration; use disposable systems when validating remediation behavior, and maintain out-of-band access before changing remote-access controls.
+Aegis v1.1.0 adds audit snapshots and diff to the stable public CLI and data contracts. Aegis changes security-sensitive system configuration; use disposable systems when validating remediation behavior, and maintain out-of-band access before changing remote-access controls.
 
 ## Reporting a vulnerability
 
